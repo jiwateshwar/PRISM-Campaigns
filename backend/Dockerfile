@@ -1,11 +1,12 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
-# System deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# System deps — musl-based, no apt needed
+RUN apk add --no-cache \
     curl \
     gcc \
+    musl-dev \
     libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    postgresql-dev
 
 WORKDIR /app
 
@@ -17,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create non-root user
-RUN addgroup --system prism && adduser --system --group prism
+RUN addgroup -S prism && adduser -S -G prism prism
 RUN chown -R prism:prism /app
 USER prism
 
