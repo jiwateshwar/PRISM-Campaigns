@@ -73,7 +73,7 @@ services:
   # FastAPI Backend  (pre-built image)
   # ─────────────────────────────────────────────
   backend:
-    image: ${BACKEND_IMAGE:-prism-backend:latest}
+    image: ${BACKEND_IMAGE:-ghcr.io/jiwateshwar/prism-backend:latest}
     container_name: prism_backend
     restart: unless-stopped
     environment:
@@ -111,7 +111,7 @@ services:
   # Next.js Frontend  (pre-built image)
   # ─────────────────────────────────────────────
   frontend:
-    image: ${FRONTEND_IMAGE:-prism-frontend:latest}
+    image: ${FRONTEND_IMAGE:-ghcr.io/jiwateshwar/prism-frontend:latest}
     container_name: prism_frontend
     restart: unless-stopped
     environment:
