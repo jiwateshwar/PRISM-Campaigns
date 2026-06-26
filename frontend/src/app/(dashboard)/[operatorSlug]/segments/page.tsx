@@ -190,17 +190,38 @@ export default function SegmentsPage() {
   );
 }
 
+// ─── Business Rules Editor ────────────────────────────────────────────────────
+
+type Rule = { field: string; operator: string; value: string };
+const OPERATORS = ["equals", "not_equals", "greater_than", "less_than", "in", "not_in", "contains"];
+
+function parseRules(businessRules: Record<string, unknown>): Rule[] {
+  const arr = businessRules?.rules;
+  if (!Array.isArray(arr)) return [];
+  return arr.filter((r): r is Rule => r && typeof r === "object" && "field" in r);
+}
+
+// ─── Segment Form Modal ───────────────────────────────────────────────────────
+
 function SegmentFormModal({ operatorSlug, segment, onClose, onSaved }: {
   operatorSlug: string; segment?: Segment; onClose: () => void; onSaved: () => void;
 }) {
   const editing = !!segment;
-  const [name, setName] = useState(segment?.name ?? "");
+  const [name,        setName]        = useState(segment?.name ?? "");
   const [description, setDescription] = useState(segment?.description ?? "");
-  const [owner, setOwner] = useState(segment?.owner ?? "");
-  const [estSize, setEstSize] = useState(String(segment?.estimated_audience_size ?? ""));
-  const [eligSize, setEligSize] = useState(String(segment?.eligible_audience_size ?? ""));
-  const [notes, setNotes] = useState(segment?.notes ?? "");
-  const [loading, setLoading] = useState(false);
+  const [owner,       setOwner]       = useState(segment?.owner ?? "");
+  const [estSize,     setEstSize]     = useState(String(segment?.estimated_audience_size ?? ""));
+  const [eligSize,    setEligSize]    = useState(String(segment?.eligible_audience_size ?? ""));
+  const [notes,       setNotes]       = useState(segment?.notes ?? "");
+  const [rules,       setRules]       = useState<Rule[]>(parseRules(segment?.business_rules ?? {}));
+  const [logic,       setLogic]       = useState<string>((segment?.business_rules as { logic?: string })?.logic ?? "AND");
+  const [loading,     setLoading]     = useState(false);
+
+  function addRule()                                        { setRules((r) => [...r, { field: "", operator: "equals", value: "" }]); }
+  function removeRule(i: number)                            { setRules((r) => r.filter((_, idx) => idx !== i)); }
+  function updateRule(i: number, key: keyof Rule, val: string) {
+    setRules((r) => r.map((rule, idx) => idx === i ? { ...rule, [key]: val } : rule));
+  }
 
   async function handleSave() {
     if (!name.trim()) { toast.error("Segment name is required"); return; }
@@ -208,9 +229,9 @@ function SegmentFormModal({ operatorSlug, segment, onClose, onSaved }: {
     try {
       const payload = {
         name, description, owner,
-        business_rules: segment?.business_rules ?? {},
+        business_rules: rules.length > 0 ? { rules, logic } : {},
         estimated_audience_size: parseInt(estSize) || 0,
-        eligible_audience_size: parseInt(eligSize) || 0,
+        eligible_audience_size:  parseInt(eligSize) || 0,
         notes,
       };
       if (editing) {
@@ -230,48 +251,103 @@ function SegmentFormModal({ operatorSlug, segment, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl border border-[#D6E1EE] shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-base font-bold text-[#0D1B2E] mb-4">
-          {editing ? "Edit Segment" : "New Audience Segment"}
-        </h2>
-        <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-[#D6E1EE] shadow-xl w-full max-w-xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-[#EAF0F7] flex-shrink-0">
+          <h2 className="text-base font-bold text-[#0D1B2E]">{editing ? "Edit Segment" : "New Audience Segment"}</h2>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#607080] mb-1.5">Segment Name *</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)}
               placeholder="e.g. High Value Subscribers" autoFocus
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#607080] mb-1.5">Description</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
               placeholder="Business description of who this segment includes…"
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors resize-none" />
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-[#607080] mb-1.5">Estimated Audience Size</label>
               <input type="number" value={estSize} onChange={(e) => setEstSize(e.target.value)} placeholder="e.g. 250000"
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-[#607080] mb-1.5">Eligible Audience Size</label>
               <input type="number" value={eligSize} onChange={(e) => setEligSize(e.target.value)} placeholder="e.g. 220000"
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#607080] mb-1.5">Owner</label>
             <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="e.g. Marketing Team"
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
           </div>
+
+          {/* Business Rules section */}
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-[10px] font-bold text-[#9EB0C1] uppercase tracking-widest">Business Rules</span>
+              <div className="flex-1 h-px bg-[#EAF0F7]" />
+              {rules.length > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[#9EB0C1]">Logic:</span>
+                  {(["AND", "OR"] as const).map((l) => (
+                    <button key={l} onClick={() => setLogic(l)}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${logic === l ? "bg-[#0A7EA4] text-white" : "bg-[#EFF3F8] text-[#607080]"}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-[#9EB0C1] mb-3">
+              Define who qualifies. No customer data is stored — these are business criteria only.
+            </p>
+
+            {rules.length === 0 ? (
+              <div className="text-center py-4 bg-[#F9FBFD] rounded-lg border border-dashed border-[#D6E1EE]">
+                <p className="text-xs text-[#9EB0C1] mb-2">No rules defined yet</p>
+                <button onClick={addRule} className="text-xs font-semibold text-[#0A7EA4] hover:underline">+ Add first rule</button>
+              </div>
+            ) : (
+              <div className="space-y-2 mb-2">
+                {rules.map((rule, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input type="text" value={rule.field} onChange={(e) => updateRule(i, "field", e.target.value)}
+                      placeholder="field" className="flex-1 px-2.5 py-2 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 min-w-0" />
+                    <select value={rule.operator} onChange={(e) => updateRule(i, "operator", e.target.value)}
+                      className="px-2 py-2 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white">
+                      {OPERATORS.map((op) => <option key={op} value={op}>{op.replace("_", " ")}</option>)}
+                    </select>
+                    <input type="text" value={rule.value} onChange={(e) => updateRule(i, "value", e.target.value)}
+                      placeholder="value" className="flex-1 px-2.5 py-2 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 min-w-0" />
+                    <button onClick={() => removeRule(i)}
+                      className="w-7 h-7 rounded-md flex items-center justify-center text-[#9EB0C1] hover:bg-red-50 hover:text-red-500 transition-all flex-shrink-0">
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {rules.length > 0 && (
+              <button onClick={addRule} className="text-xs font-semibold text-[#0A7EA4] hover:underline mt-1">+ Add rule</button>
+            )}
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-[#607080] mb-1.5">Notes</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              placeholder="Additional context or notes about this segment…"
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors resize-none" />
+              placeholder="Additional context…"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 resize-none" />
           </div>
         </div>
-        <div className="flex gap-2 mt-5">
+
+        <div className="px-6 py-4 border-t border-[#EAF0F7] flex gap-2 flex-shrink-0">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
           <button onClick={handleSave} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
             {loading ? (editing ? "Saving…" : "Creating…") : (editing ? "Save Changes" : "Create Segment")}

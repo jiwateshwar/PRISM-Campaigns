@@ -344,32 +344,113 @@ export default function CampaignDetailPage() {
 
 function AddTaskInline({ campaignId, operatorSlug }: { campaignId: string; operatorSlug: string }) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [team, setTeam] = useState("");
   const qc = useQueryClient();
 
-  async function add() {
-    if (!title || !team) { toast.error("Title and team are required"); return; }
-    await api.createSupportTask(operatorSlug, campaignId, { title, team, status: "pending" });
+  async function handleSave(data: Record<string, unknown>) {
+    await api.createSupportTask(operatorSlug, campaignId, data);
     qc.invalidateQueries({ queryKey: ["tasks", campaignId] });
     toast.success("Task added");
-    setTitle(""); setTeam(""); setOpen(false);
+    setOpen(false);
   }
 
-  if (!open) return (
-    <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#0A7EA4] bg-[#EBF7FC] rounded-lg hover:bg-[#D0EDF7] transition-colors">
-      <Plus size={12} /> Add Task
-    </button>
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#0A7EA4] bg-[#EBF7FC] rounded-lg hover:bg-[#D0EDF7] transition-colors">
+        <Plus size={12} /> Add Task
+      </button>
+      {open && <TaskFormModal onClose={() => setOpen(false)} onSave={handleSave} />}
+    </>
   );
+}
+
+function TaskFormModal({ onClose, onSave }: { onClose: () => void; onSave: (data: Record<string, unknown>) => Promise<void> }) {
+  const [title,         setTitle]         = useState("");
+  const [team,          setTeam]          = useState("");
+  const [owner,         setOwner]         = useState("");
+  const [description,   setDescription]   = useState("");
+  const [dueDate,       setDueDate]       = useState("");
+  const [status,        setStatus]        = useState("pending");
+  const [completionPct, setCompletionPct] = useState(0);
+  const [loading,       setLoading]       = useState(false);
+
+  async function handleSubmit() {
+    if (!title.trim() || !team.trim()) { toast.error("Title and team are required"); return; }
+    setLoading(true);
+    try {
+      await onSave({
+        title, team,
+        owner:          owner || null,
+        description:    description || null,
+        due_date:       dueDate || null,
+        status,
+        completion_pct: completionPct,
+      });
+    } catch { toast.error("Failed to add task"); }
+    finally { setLoading(false); }
+  }
 
   return (
-    <div className="flex items-center gap-2">
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" autoFocus
-        className="px-2.5 py-1.5 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 w-40" />
-      <input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Team"
-        className="px-2.5 py-1.5 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 w-28" />
-      <button onClick={add} className="px-2.5 py-1.5 text-xs font-semibold text-white bg-[#0A7EA4] rounded-lg">Add</button>
-      <button onClick={() => setOpen(false)} className="px-2.5 py-1.5 text-xs text-[#607080] border border-[#D6E1EE] rounded-lg">×</button>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl border shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-[#0D1B2E] mb-4">Add Support Task</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Task Title *</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Prepare SMS content" autoFocus
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Team *</label>
+              <input type="text" value={team} onChange={(e) => setTeam(e.target.value)} placeholder="e.g. Creative"
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Owner</label>
+              <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="e.g. Sarah K."
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
+              placeholder="Additional details…"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Due Date</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Status</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white">
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">
+              Completion: <span className="text-[#0A7EA4] font-bold">{completionPct}%</span>
+            </label>
+            <input type="range" min="0" max="100" value={completionPct}
+              onChange={(e) => setCompletionPct(parseInt(e.target.value))}
+              className="w-full accent-[#0A7EA4]" />
+          </div>
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
+            {loading ? "Adding…" : "Add Task"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

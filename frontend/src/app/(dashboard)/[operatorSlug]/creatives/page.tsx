@@ -198,20 +198,50 @@ export default function CreativesPage() {
   );
 }
 
+// ─── Content helpers ──────────────────────────────────────────────────────────
+
+const CHANNEL_CONTENT_FIELDS: Record<string, { field: string; label: string; multiline: boolean }[]> = {
+  sms:      [{ field: "body",    label: "Message Body",   multiline: true  }],
+  push:     [{ field: "body",    label: "Push Message",   multiline: true  }],
+  obd:      [{ field: "body",    label: "Voice Script",   multiline: true  }],
+  ussd:     [{ field: "menu",    label: "USSD Menu",      multiline: true  }],
+  ivr:      [{ field: "script",  label: "Call Script",    multiline: true  }],
+  whatsapp: [
+    { field: "body",      label: "Message Body",   multiline: true  },
+    { field: "media_url", label: "Media URL (optional)", multiline: false },
+  ],
+  email: [
+    { field: "subject",   label: "Subject Line",   multiline: false },
+    { field: "body",      label: "Email Body",     multiline: true  },
+  ],
+};
+
+// ─── Creative Form Modal ──────────────────────────────────────────────────────
+
 function CreativeFormModal({ operatorSlug, creative, onClose, onSaved }: {
   operatorSlug: string; creative?: Creative; onClose: () => void; onSaved: () => void;
 }) {
   const editing = !!creative;
-  const [name, setName] = useState(creative?.name ?? "");
+
+  const [name,             setName]             = useState(creative?.name ?? "");
+  const [description,      setDescription]      = useState(creative?.description ?? "");
   const [selectedChannels, setSelectedChannels] = useState<string[]>(creative?.channels ?? []);
-  const [telcoName, setTelcoName] = useState(creative?.telco_name ?? "");
-  const [language, setLanguage] = useState(creative?.language ?? "English");
-  const [status, setStatus] = useState<CreativeStatus>(creative?.status ?? "draft");
-  const [isShared, setIsShared] = useState(creative?.is_shared ?? false);
-  const [loading, setLoading] = useState(false);
+  const [telcoName,        setTelcoName]        = useState(creative?.telco_name ?? "");
+  const [language,         setLanguage]         = useState(creative?.language ?? "English");
+  const [status,           setStatus]           = useState<CreativeStatus>(creative?.status ?? "draft");
+  const [isShared,         setIsShared]         = useState(creative?.is_shared ?? false);
+  const [tags,             setTags]             = useState(creative?.tags?.join(", ") ?? "");
+  const [content,          setContent]          = useState<Record<string, Record<string, string>>>(
+    (creative?.content as Record<string, Record<string, string>>) ?? {}
+  );
+  const [loading,          setLoading]          = useState(false);
 
   function toggleChannel(ch: string) {
     setSelectedChannels((prev) => prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]);
+  }
+
+  function setChannelContent(ch: string, field: string, val: string) {
+    setContent((prev) => ({ ...prev, [ch]: { ...prev[ch], [field]: val } }));
   }
 
   async function handleSave() {
@@ -219,7 +249,12 @@ function CreativeFormModal({ operatorSlug, creative, onClose, onSaved }: {
     if (selectedChannels.length === 0) { toast.error("Select at least one channel"); return; }
     setLoading(true);
     try {
-      const payload = { name, channels: selectedChannels, telco_name: telcoName, language, status, is_shared: isShared, content: creative?.content ?? {} };
+      const payload = {
+        name, description, channels: selectedChannels, telco_name: telcoName,
+        language, status, is_shared: isShared,
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        content,
+      };
       if (editing) {
         await api.updateCreative(operatorSlug, creative!.id, payload);
         toast.success("Creative updated");
@@ -234,61 +269,128 @@ function CreativeFormModal({ operatorSlug, creative, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl border shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-base font-bold text-[#0D1B2E] mb-4">{editing ? "Edit Creative" : "New Creative"}</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Creative Name *</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. RBT Activation SMS - June" autoFocus
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Channels *</label>
-            <div className="flex flex-wrap gap-2">
-              {CHANNELS.map((ch) => {
-                const style = CHANNEL_STYLES[ch];
-                const selected = selectedChannels.includes(ch);
-                return (
-                  <button key={ch} onClick={() => toggleChannel(ch)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${selected ? "border-current" : "border-transparent bg-[#EFF3F8] text-[#607080]"}`}
-                    style={selected ? { color: style.color, background: style.bg, borderColor: style.color } : {}}>
-                    {style.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Telco Name</label>
-              <input type="text" value={telcoName} onChange={(e) => setTelcoName(e.target.value)} placeholder="e.g. Airtel Ghana"
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Language</label>
-              <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="e.g. English"
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as CreativeStatus)}
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors bg-white">
-              <option value="draft">Draft</option>
-              <option value="approved">Approved</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <div onClick={() => setIsShared(!isShared)}
-              className={`w-9 h-5 rounded-full transition-colors flex items-center ${isShared ? "bg-[#0A7EA4]" : "bg-[#D6E1EE]"}`}>
-              <div className={`w-4 h-4 rounded-full bg-white shadow-sm ml-0.5 transition-transform ${isShared ? "translate-x-4" : "translate-x-0"}`} />
-            </div>
-            <span className="text-xs font-medium text-[#3D4F63]">Shared across all operators</span>
-          </label>
+      <div className="bg-white rounded-xl border shadow-xl w-full max-w-xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-[#EAF0F7] flex-shrink-0">
+          <h2 className="text-base font-bold text-[#0D1B2E]">{editing ? "Edit Creative" : "New Creative"}</h2>
         </div>
-        <div className="flex gap-2 mt-5">
+
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+          {/* Basics */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Creative Name *</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. RBT Activation SMS - June" autoFocus
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Description</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
+                placeholder="What is this creative for?"
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 resize-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Channels *</label>
+              <div className="flex flex-wrap gap-2">
+                {CHANNELS.map((ch) => {
+                  const style = CHANNEL_STYLES[ch];
+                  const selected = selectedChannels.includes(ch);
+                  return (
+                    <button key={ch} onClick={() => toggleChannel(ch)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${selected ? "border-current" : "border-transparent bg-[#EFF3F8] text-[#607080]"}`}
+                      style={selected ? { color: style.color, background: style.bg, borderColor: style.color } : {}}>
+                      {style.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#607080] mb-1.5">Telco Name</label>
+                <input type="text" value={telcoName} onChange={(e) => setTelcoName(e.target.value)} placeholder="e.g. Airtel Ghana"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#607080] mb-1.5">Language</label>
+                <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="e.g. English"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#607080] mb-1.5">Status</label>
+                <select value={status} onChange={(e) => setStatus(e.target.value as CreativeStatus)}
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white">
+                  <option value="draft">Draft</option>
+                  <option value="approved">Approved</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#607080] mb-1.5">Tags</label>
+                <input type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="activation, june, rbt"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+              </div>
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div onClick={() => setIsShared(!isShared)}
+                className={`w-9 h-5 rounded-full transition-colors flex items-center ${isShared ? "bg-[#0A7EA4]" : "bg-[#D6E1EE]"}`}>
+                <div className={`w-4 h-4 rounded-full bg-white shadow-sm ml-0.5 transition-transform ${isShared ? "translate-x-4" : "translate-x-0"}`} />
+              </div>
+              <span className="text-xs font-medium text-[#3D4F63]">Shared across all operators</span>
+            </label>
+          </div>
+
+          {/* Per-channel content sections */}
+          {selectedChannels.length > 0 && (
+            <div>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-[10px] font-bold text-[#9EB0C1] uppercase tracking-widest">Message Content</span>
+                <div className="flex-1 h-px bg-[#EAF0F7]" />
+              </div>
+              <div className="space-y-4">
+                {selectedChannels.map((ch) => {
+                  const style = CHANNEL_STYLES[ch];
+                  const fields = CHANNEL_CONTENT_FIELDS[ch] || [{ field: "body", label: "Content", multiline: true }];
+                  return (
+                    <div key={ch} className="rounded-lg border border-[#EAF0F7] p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: style.color, background: style.bg }}>
+                          {style.label}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {fields.map(({ field, label, multiline }) => (
+                          <div key={field}>
+                            <label className="block text-[10px] font-semibold text-[#9EB0C1] mb-1">{label}</label>
+                            {multiline ? (
+                              <textarea
+                                value={content[ch]?.[field] ?? ""}
+                                onChange={(e) => setChannelContent(ch, field, e.target.value)}
+                                rows={3} placeholder={`Enter ${label.toLowerCase()}…`}
+                                className="w-full px-3 py-2 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 resize-none font-mono"
+                              />
+                            ) : (
+                              <input type="text"
+                                value={content[ch]?.[field] ?? ""}
+                                onChange={(e) => setChannelContent(ch, field, e.target.value)}
+                                placeholder={label.includes("URL") ? "https://…" : `Enter ${label.toLowerCase()}…`}
+                                className="w-full px-3 py-2 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-[#EAF0F7] flex gap-2 flex-shrink-0">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
           <button onClick={handleSave} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
             {loading ? (editing ? "Saving…" : "Creating…") : (editing ? "Save Changes" : "Create Creative")}

@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/layout/header";
 import type { ChannelCapacity, Product } from "@/types";
 import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
-import { Settings, Layers, Radio, Plus, Save, Loader2, AlertTriangle } from "lucide-react";
+import { Settings, Layers, Radio, Plus, Save, Loader2, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 
 const CHANNELS = ["sms", "whatsapp", "ussd", "obd", "ivr", "push", "email"];
 
@@ -61,6 +61,8 @@ export default function SettingsPage() {
   const [newMonth, setNewMonth] = useState(new Date().toISOString().slice(0, 7));
   const [newDaily, setNewDaily] = useState("");
   const [newMonthly, setNewMonthly] = useState("");
+  const [showProductCreate, setShowProductCreate] = useState(false);
+  const [editProduct,       setEditProduct]       = useState<Product | null>(null);
   const qc = useQueryClient();
 
   const { data: capacities = [], isLoading: capLoading } = useQuery<ChannelCapacity[]>({
@@ -215,13 +217,19 @@ export default function SettingsPage() {
               <h3 className="text-sm font-bold text-[#0D1B2E]">Operator Products</h3>
               <p className="text-xs text-[#9EB0C1] mt-0.5">Products available to this operator for campaign planning</p>
             </div>
+            <button onClick={() => setShowProductCreate(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0A7EA4] rounded-lg hover:bg-[#0A7EA4]/90 transition-colors">
+              <Plus size={12} /> New Product
+            </button>
           </div>
           {prodLoading ? (
             <div className="flex items-center justify-center h-32"><Loader2 className="animate-spin text-[#0A7EA4]" size={20} /></div>
+          ) : products.length === 0 ? (
+            <div className="text-center py-12 text-sm text-[#9EB0C1]">No products yet. Click "New Product" to add one.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {products.map((product) => (
-                <div key={product.id} className={`rounded-xl border p-4 flex items-center gap-3 ${product.is_active ? "border-[#D6E1EE]" : "border-[#EAF0F7] opacity-60"}`}>
+                <div key={product.id} className={`rounded-xl border p-4 flex items-center gap-3 group hover:border-[#0A7EA4]/40 transition-all ${product.is_active ? "border-[#D6E1EE]" : "border-[#EAF0F7] opacity-60"}`}>
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
                     style={{ background: product.color ? `${product.color}20` : "#EFF3F8" }}>
                     {product.icon || "📦"}
@@ -231,7 +239,23 @@ export default function SettingsPage() {
                       <span className="text-sm font-semibold text-[#0D1B2E] truncate">{product.name}</span>
                       {!product.is_active && <span className="text-[10px] text-gray-400 font-medium">Inactive</span>}
                     </div>
-                    <span className="text-[10px] text-[#9EB0C1]">{product.code} · {product.category}</span>
+                    <span className="text-[10px] text-[#9EB0C1]">{product.code}{product.category ? ` · ${product.category}` : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                    <button onClick={() => setEditProduct(product)}
+                      className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-[#EFF3F8] text-[#9EB0C1] hover:text-[#0A7EA4] transition-all">
+                      <Pencil size={11} />
+                    </button>
+                    <button onClick={async () => {
+                      if (!confirm(`Deactivate "${product.name}"?`)) return;
+                      try {
+                        await api.updateProduct(operatorSlug, product.id, { is_active: false });
+                        qc.invalidateQueries({ queryKey: ["products", operatorSlug] });
+                        toast.success("Product deactivated");
+                      } catch { toast.error("Failed to deactivate product"); }
+                    }} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-red-50 text-[#9EB0C1] hover:text-red-500 transition-all">
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -239,6 +263,116 @@ export default function SettingsPage() {
           )}
         </div>
       )}
+
+      {showProductCreate && (
+        <ProductFormModal operatorSlug={operatorSlug}
+          onClose={() => setShowProductCreate(false)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["products", operatorSlug] }); setShowProductCreate(false); }} />
+      )}
+      {editProduct && (
+        <ProductFormModal operatorSlug={operatorSlug} product={editProduct}
+          onClose={() => setEditProduct(null)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["products", operatorSlug] }); setEditProduct(null); }} />
+      )}
+    </div>
+  );
+}
+
+// ─── Product Form Modal ───────────────────────────────────────────────────────
+
+function ProductFormModal({ operatorSlug, product, onClose, onSaved }: {
+  operatorSlug: string; product?: Product; onClose: () => void; onSaved: () => void;
+}) {
+  const editing = !!product;
+  const [name,        setName]        = useState(product?.name ?? "");
+  const [code,        setCode]        = useState(product?.code ?? "");
+  const [description, setDescription] = useState(product?.description ?? "");
+  const [category,    setCategory]    = useState(product?.category ?? "");
+  const [icon,        setIcon]        = useState(product?.icon ?? "📦");
+  const [color,       setColor]       = useState(product?.color ?? "#0A7EA4");
+  const [isActive,    setIsActive]    = useState(product?.is_active ?? true);
+  const [loading,     setLoading]     = useState(false);
+
+  async function handleSave() {
+    if (!name.trim() || !code.trim()) { toast.error("Name and code are required"); return; }
+    setLoading(true);
+    try {
+      const payload = {
+        name, code,
+        description: description || null,
+        category:    category || null,
+        icon:        icon || null,
+        color:       color || null,
+        is_active:   isActive,
+      };
+      if (editing) {
+        await api.updateProduct(operatorSlug, product!.id, payload);
+        toast.success("Product updated");
+      } else {
+        await api.createProduct(operatorSlug, payload);
+        toast.success("Product created");
+      }
+      onSaved();
+    } catch { toast.error(editing ? "Failed to update product" : "Failed to create product"); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl border shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-[#0D1B2E] mb-4">{editing ? "Edit Product" : "New Product"}</h3>
+        <div className="space-y-3">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Product Name *</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ring Back Tone" autoFocus
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+            </div>
+            <div className="w-16">
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Icon</label>
+              <input type="text" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📦"
+                className="w-full px-2 py-2.5 text-lg rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 text-center" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Code *</label>
+              <input type="text" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="e.g. RBT"
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Category</label>
+              <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. VAS"
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Brief description…"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 resize-none" />
+          </div>
+          <div className="flex items-end gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#607080] mb-1.5">Accent Color</label>
+              <input type="color" value={color || "#0A7EA4"} onChange={(e) => setColor(e.target.value)}
+                className="w-16 h-10 rounded-lg border border-[#D6E1EE] cursor-pointer p-1" />
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer mb-1">
+              <div onClick={() => setIsActive(!isActive)}
+                className={`w-9 h-5 rounded-full transition-colors flex items-center ${isActive ? "bg-[#0A7EA4]" : "bg-[#D6E1EE]"}`}>
+                <div className={`w-4 h-4 rounded-full bg-white shadow-sm ml-0.5 transition-transform ${isActive ? "translate-x-4" : "translate-x-0"}`} />
+              </div>
+              <span className="text-xs font-medium text-[#3D4F63]">Active</span>
+            </label>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
+          <button onClick={handleSave} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
+            {loading ? (editing ? "Saving…" : "Creating…") : (editing ? "Save Changes" : "Create Product")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
