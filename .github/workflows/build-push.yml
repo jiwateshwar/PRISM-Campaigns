@@ -24,21 +24,38 @@ jobs:
             -t prism-frontend:latest \
             ./frontend
 
-      - name: Save images to tar files
+      - name: Pull infrastructure images
         run: |
-          docker save prism-backend:latest | gzip > prism-backend.tar.gz
-          docker save prism-frontend:latest | gzip > prism-frontend.tar.gz
+          docker pull postgres:16-alpine
+          docker pull redis:7-alpine
+          docker pull minio/minio:latest
+          docker pull nginx:alpine
 
-      - name: Upload backend image
+      - name: Save all images to tar files
+        run: |
+          docker save prism-backend:latest   | gzip > prism-backend.tar.gz
+          docker save prism-frontend:latest  | gzip > prism-frontend.tar.gz
+          docker save postgres:16-alpine     | gzip > postgres.tar.gz
+          docker save redis:7-alpine         | gzip > redis.tar.gz
+          docker save minio/minio:latest     | gzip > minio.tar.gz
+          docker save nginx:alpine           | gzip > nginx.tar.gz
+
+      - name: Upload app images
         uses: actions/upload-artifact@v4
         with:
-          name: prism-backend
-          path: prism-backend.tar.gz
+          name: prism-app-images
+          path: |
+            prism-backend.tar.gz
+            prism-frontend.tar.gz
           retention-days: 7
 
-      - name: Upload frontend image
+      - name: Upload infrastructure images
         uses: actions/upload-artifact@v4
         with:
-          name: prism-frontend
-          path: prism-frontend.tar.gz
+          name: prism-infra-images
+          path: |
+            postgres.tar.gz
+            redis.tar.gz
+            minio.tar.gz
+            nginx.tar.gz
           retention-days: 7
