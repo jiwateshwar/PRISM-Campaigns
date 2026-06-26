@@ -5,7 +5,13 @@
       "Bash(mkdir -p \"c:/VS Code/PRISM Campaigns/frontend/src/app/\\(dashboard\\)/[operatorSlug]/journeys/[id]\" 2>/dev/null; echo done)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "PowerShell(Test-Connection -ComputerName 172.27.45.101 -Count 2 -ErrorAction SilentlyContinue)",
+      "PowerShell(Test-NetConnection -ComputerName 172.27.45.101 -Port 9443 -WarningAction SilentlyContinue)",
+      "PowerShell(Test-NetConnection -ComputerName 172.27.45.101 -Port 9000 -WarningAction SilentlyContinue)",
+      "Bash(npx tsc *)",
+      "Bash(npx --yes next build)",
+      "Bash(node node_modules/.bin/next build --no-turbo)"
     ],
     "additionalDirectories": [
       "c:\\VS Code\\PRISM Campaigns\\frontend\\src\\app\\(dashboard)\\[operatorSlug]",
