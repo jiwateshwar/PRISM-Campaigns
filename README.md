@@ -54,6 +54,38 @@ The database is automatically seeded with:
 
 ---
 
+## Offline VM Deployment
+
+For the offline Docker VM, use the local deploy script instead of building in GitHub, downloading artifacts, copying them manually, and loading them by hand.
+
+From this repo on a machine that has Docker and network access for builds:
+
+```powershell
+.\deploy-offline.ps1
+```
+
+What it does:
+- builds `prism-backend:latest` and `prism-frontend:latest`
+- saves the images into `.deploy/*.tar`
+- copies the images, `docker-compose.yml`, `nginx/nginx.conf`, and `docker/postgres/init.sql` to `/root/prism`
+- loads the images on `172.27.45.101`
+- runs `docker compose up -d`
+
+Useful options:
+
+```powershell
+# Use a specific image tag
+.\deploy-offline.ps1 -Tag v1.0.0
+
+# Also bundle infrastructure images for a first-time offline VM bootstrap
+.\deploy-offline.ps1 -IncludeInfraImages
+
+# Redeploy an existing Portainer stack compose file
+.\deploy-offline.ps1 -RemoteComposeFile "/var/lib/docker/volumes/portainer_data/_data/compose/23/docker-compose.yml"
+```
+
+---
+
 ## Architecture
 
 ```
