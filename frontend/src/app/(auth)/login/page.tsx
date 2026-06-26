@@ -140,7 +140,7 @@ export default function LoginPage() {
 
         <div className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
           <p className="text-xs text-blue-400 text-center">
-            Default credentials: <span className="text-blue-300">admin@prism.local / Admin@123456</span>
+            Default credentials: <span className="text-blue-300">admin@prism.internal / changeme123</span>
           </p>
         </div>
       </div>
