@@ -414,7 +414,7 @@ function CampaignFormModal({
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[#607080] mb-1.5">Status</label>
-                  <select value={status} onChange={(e) => setStatus(e.target.value)}
+                  <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}
                     className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white">
                     {["draft","planned","ready","scheduled","executing","completed","results_imported","closed"].map((s) => (
                       <option key={s} value={s}>{CAMPAIGN_STATUS_LABELS[s as keyof typeof CAMPAIGN_STATUS_LABELS] || s}</option>
