@@ -50,12 +50,14 @@ def upgrade() -> None:
     )
 
     # User operator roles
+    userrole_enum = postgresql.ENUM('SUPER_ADMIN', 'OPERATOR_ADMIN', 'PLANNER', 'VIEWER', name='userrole')
+    userrole_enum.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "user_operator_roles",
         sa.Column("id", postgresql.UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("operator_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("operators.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("role", sa.String(50), nullable=False, server_default="viewer"),
+        sa.Column("role", sa.Enum('SUPER_ADMIN', 'OPERATOR_ADMIN', 'PLANNER', 'VIEWER', name='userrole'), nullable=False, server_default="VIEWER"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.UniqueConstraint("user_id", "operator_id", name="uq_user_operator"),
@@ -73,7 +75,7 @@ def upgrade() -> None:
         sa.Column("icon", sa.String(10)),
         sa.Column("color", sa.String(20)),
         sa.Column("is_active", sa.Boolean(), server_default="true"),
-        sa.Column("metadata_", postgresql.JSONB(), server_default="{}"),
+        sa.Column("metadata", postgresql.JSONB(), server_default="{}"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True)),
@@ -127,6 +129,7 @@ def upgrade() -> None:
         sa.Column("owner", sa.String(255)),
         sa.Column("tags", postgresql.JSONB(), server_default="[]"),
         sa.Column("is_active", sa.Boolean(), server_default="true"),
+        sa.Column("notes", sa.Text()),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True)),
@@ -160,7 +163,7 @@ def upgrade() -> None:
         sa.Column("expected_monthly_arpu", sa.Numeric(10, 4), server_default="0"),
         sa.Column("expected_conversion_rate", sa.Numeric(7, 4), server_default="0"),
         sa.Column("status", sa.String(50), server_default="active"),
-        sa.Column("tags", postgresql.JSONB(), server_default="[]"),
+        sa.Column("tags", sa.String(500), server_default=""),
         sa.Column("notes", sa.Text()),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
@@ -212,8 +215,10 @@ def upgrade() -> None:
         sa.Column("thumbnail_url", sa.Text()),
         sa.Column("usage_count", sa.Integer(), server_default="0"),
         sa.Column("tags", postgresql.JSONB(), server_default="[]"),
+        sa.Column("created_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("deleted_at", sa.DateTime(timezone=True)),
     )
 
     # Journeys
@@ -230,6 +235,7 @@ def upgrade() -> None:
         sa.Column("viewport", postgresql.JSONB(), server_default="{}"),
         sa.Column("is_template", sa.Boolean(), server_default="false"),
         sa.Column("template_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("journey_templates.id", ondelete="SET NULL")),
+        sa.Column("created_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True)),

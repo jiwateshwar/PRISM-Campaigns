@@ -255,8 +255,8 @@ async def seed():
             print(f"✓ Created products for MTN Uganda")
 
         # ─── Journey Templates ─────────────────────────────────────────────────
-        existing_tmpl = await db.execute(select(JourneyTemplate))
-        if not existing_tmpl.scalar_one_or_none():
+        existing_tmpl = await db.execute(select(JourneyTemplate).limit(1))
+        if not existing_tmpl.scalars().first():
             templates = [
                 {
                     "name": "Customer Acquisition",

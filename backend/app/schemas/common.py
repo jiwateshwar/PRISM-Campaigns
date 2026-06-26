@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Any
+import uuid
 
 
 class PaginatedResponse(BaseModel):
@@ -15,4 +16,4 @@ class MessageResponse(BaseModel):
 
 
 class IDResponse(BaseModel):
-    id: str
+    id: uuid.UUID

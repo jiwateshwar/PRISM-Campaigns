@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+import uuid
 
 
 class LoginRequest(BaseModel):
@@ -18,7 +19,7 @@ class RefreshRequest(BaseModel):
 
 
 class UserRead(BaseModel):
-    id: str
+    id: uuid.UUID
     email: str
     full_name: str
     is_super_admin: bool
