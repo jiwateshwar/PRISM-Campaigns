@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 import type { Journey } from "@/types";
 import { toast } from "sonner";
@@ -89,26 +89,29 @@ export default function JourneyBuilderPage() {
 
   const { data: journey, isLoading } = useQuery<Journey>({
     queryKey: ["journey", id],
-    queryFn: () => api.getJourneys(operatorSlug).then(() => {
-      return fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/${operatorSlug}/journeys/${id}`, {
+    queryFn: async (): Promise<Journey> => {
+      const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/${operatorSlug}/journeys/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-      }).then((r) => r.json());
-    }),
-    onSuccess: (data: Journey) => {
-      setJourneyName(data.name);
-      setNodes(
-        (data.nodes || []).map((n: Record<string, unknown>) => ({
-          ...n,
-          type: "custom",
-          data: { ...(n.data as object), nodeType: (n.data as Record<string, unknown>)?.nodeType || "sms" },
-        })) as Node[]
-      );
-      setEdges((data.edges || []) as Edge[]);
+      });
+      return r.json() as Promise<Journey>;
     },
-  } as Parameters<typeof useQuery>[0]);
+  });
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  useEffect(() => {
+    if (!journey) return;
+    setJourneyName(journey.name);
+    setNodes(
+      (journey.nodes || []).map((n: Record<string, unknown>) => ({
+        ...n,
+        type: "custom",
+        data: { ...(n.data as object), nodeType: (n.data as Record<string, unknown>)?.nodeType || "sms" },
+      })) as Node[]
+    );
+    setEdges((journey.edges || []) as Edge[]);
+  }, [journey]);
 
   const onConnect = useCallback(
     (params: Connection) =>
