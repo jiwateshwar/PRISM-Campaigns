@@ -89,6 +89,8 @@ def upgrade() -> None:
         sa.Column("product_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("products.id", ondelete="SET NULL")),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("month", sa.Date(), nullable=False),
+        sa.Column("description", sa.Text()),
+        sa.Column("created_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id")),
         sa.Column("status", sa.String(50), server_default="draft"),
         sa.Column("target_activations", sa.Integer(), server_default="0"),
         sa.Column("target_revenue", sa.Numeric(18, 2), server_default="0"),

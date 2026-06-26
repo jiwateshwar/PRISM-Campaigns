@@ -28,6 +28,11 @@ class UserRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class UserOperatorRoleCreate(BaseModel):
     user_id: uuid.UUID
     operator_id: uuid.UUID

@@ -113,7 +113,7 @@ export default function OperatorsPage() {
 
             {user?.is_super_admin && (
               <button
-                onClick={() => router.push("/admin/operators/new")}
+                onClick={() => router.push("/admin/operators")}
                 className="text-left rounded-xl border-2 border-dashed border-[#D6E1EE] p-5 hover:border-[#0A7EA4]/50 hover:bg-[#EBF7FC]/50 transition-all flex flex-col items-center justify-center gap-2 min-h-[144px]"
               >
                 <Plus size={24} className="text-[#9EB0C1]" />

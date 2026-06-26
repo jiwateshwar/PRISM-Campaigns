@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { useRouter } from "next/navigation";
 import type { Operator } from "@/types";
 import { toast } from "sonner";
-import { Plus, Loader2, Settings, Globe, ArrowLeft } from "lucide-react";
+import { Plus, Loader2, Settings, Globe, ArrowLeft, Users } from "lucide-react";
 import Link from "next/link";
 
 export default function AdminOperatorsPage() {
@@ -48,7 +48,11 @@ function AdminContent() {
             <h1 className="text-xl font-bold text-[#0D1B2E]">Operator Management</h1>
             <p className="text-sm text-[#9EB0C1]">Super admin · Manage all operator tenants</p>
           </div>
-          <button onClick={() => setShowForm(true)} className="ml-auto flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#0A7EA4] rounded-lg">
+          <Link href="/admin/users" className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-[#D6E1EE] bg-white text-[#607080] rounded-lg hover:bg-[#EFF3F8] transition-colors">
+            <Users size={14} />
+            Manage Users
+          </Link>
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#0A7EA4] rounded-lg">
             <Plus size={15} />
             New Operator
           </button>

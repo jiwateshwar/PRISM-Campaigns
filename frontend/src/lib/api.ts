@@ -388,6 +388,15 @@ class ApiClient {
     const res = await this.client.post("/users/operator-roles", data);
     return res.data;
   }
+
+  async updateMe(data: { full_name?: string }) {
+    const res = await this.client.patch("/users/me", data);
+    return res.data;
+  }
+
+  async changePassword(current_password: string, new_password: string) {
+    await this.client.post("/users/me/change-password", { current_password, new_password });
+  }
 }
 
 export const api = new ApiClient();
