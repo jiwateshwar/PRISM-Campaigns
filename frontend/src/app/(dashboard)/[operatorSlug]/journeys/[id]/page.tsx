@@ -108,7 +108,7 @@ export default function JourneyBuilderPage() {
         ...n,
         type: "custom",
         data: { ...(n.data as object), nodeType: (n.data as Record<string, unknown>)?.nodeType || "sms" },
-      })) as Node[]
+      })) as unknown as Node[]
     );
     setEdges((journey.edges || []) as Edge[]);
   }, [journey]);
