@@ -295,6 +295,11 @@ class ApiClient {
     return res.data;
   }
 
+  async getJourney(operatorSlug: string, id: string) {
+    const res = await this.client.get(`/${operatorSlug}/journeys/${id}`);
+    return res.data;
+  }
+
   async createJourney(operatorSlug: string, data: Record<string, unknown>) {
     const res = await this.client.post(`/${operatorSlug}/journeys`, data);
     return res.data;
