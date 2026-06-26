@@ -8,7 +8,8 @@ import { PageHeader } from "@/components/layout/header";
 import type { Journey, JourneyTemplate } from "@/types";
 import { truncate } from "@/lib/utils";
 import { toast } from "sonner";
-import { Plus, Search, Workflow, Loader2, Layers, Copy, ExternalLink, Trash2 } from "lucide-react";
+import { Plus, Search, Workflow, Loader2, Layers, Copy, ExternalLink, Trash2, Megaphone } from "lucide-react";
+import type { Campaign } from "@/types";
 
 const TEMPLATE_CATEGORIES = [
   { value: "all", label: "All Templates" },
@@ -31,9 +32,10 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function JourneysPage() {
   const { operatorSlug } = useParams<{ operatorSlug: string }>();
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<"journeys" | "templates">("journeys");
-  const [templateCategory, setTemplateCategory] = useState("all");
+  const [search,            setSearch]           = useState("");
+  const [tab,               setTab]              = useState<"journeys" | "templates">("journeys");
+  const [templateCategory,  setTemplateCategory] = useState("all");
+  const [showNewModal,      setShowNewModal]      = useState(false);
   const qc = useQueryClient();
 
   const { data: journeys = [], isLoading: jLoading } = useQuery<Journey[]>({
@@ -41,6 +43,13 @@ export default function JourneysPage() {
     queryFn: () => api.getJourneys(operatorSlug),
     enabled: tab === "journeys",
   });
+
+  const { data: campaigns = [] } = useQuery<Campaign[]>({
+    queryKey: ["campaigns", operatorSlug],
+    queryFn: () => api.getCampaigns(operatorSlug),
+  });
+
+  const campaignMap = Object.fromEntries(campaigns.map((c) => [c.id, c]));
 
   const { data: templates = [], isLoading: tLoading } = useQuery<JourneyTemplate[]>({
     queryKey: ["journey-templates", operatorSlug, templateCategory],
@@ -65,9 +74,13 @@ export default function JourneysPage() {
     }
   }
 
-  async function handleNewJourney() {
+  async function handleNewJourney(name: string, campaignId: string) {
     try {
-      const journey = await api.createJourney(operatorSlug, { name: "Untitled Journey", nodes: [], edges: [] });
+      const journey = await api.createJourney(operatorSlug, {
+        name: name || "Untitled Journey",
+        nodes: [], edges: [],
+        campaign_id: campaignId || null,
+      });
       router.push(`/${operatorSlug}/journeys/${journey.id}`);
     } catch {
       toast.error("Failed to create journey");
@@ -83,7 +96,7 @@ export default function JourneysPage() {
         description="Build and manage visual customer journey flows"
         actions={
           <button
-            onClick={handleNewJourney}
+            onClick={() => setShowNewModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#0A7EA4]"
           >
             <Plus size={15} />
@@ -131,7 +144,7 @@ export default function JourneysPage() {
               <p className="font-semibold text-[#0D1B2E]">No journeys yet</p>
               <p className="text-sm text-[#9EB0C1] mt-1">Start from scratch or use a template</p>
               <div className="flex justify-center gap-2 mt-4">
-                <button onClick={handleNewJourney} className="px-4 py-2 text-sm font-semibold text-white bg-[#0A7EA4] rounded-lg">
+                <button onClick={() => setShowNewModal(true)} className="px-4 py-2 text-sm font-semibold text-white bg-[#0A7EA4] rounded-lg">
                   Create Journey
                 </button>
                 <button onClick={() => setTab("templates")} className="px-4 py-2 text-sm font-medium border border-[#D6E1EE] rounded-lg text-[#607080]">
@@ -165,6 +178,14 @@ export default function JourneysPage() {
                       </button>
                     </div>
                   </div>
+                  {journey.campaign_id && campaignMap[journey.campaign_id] && (
+                    <div className="flex items-center gap-1 mb-2">
+                      <span className="flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-[#EBF7FC] text-[#0A7EA4]">
+                        <Megaphone size={8} />
+                        {campaignMap[journey.campaign_id].name}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-xs text-[#9EB0C1]">
                     <span>{journey.nodes.length} nodes · {journey.edges.length} connections</span>
                     <span className={`px-2 py-0.5 rounded-full font-medium text-[10px] ${
@@ -176,6 +197,14 @@ export default function JourneysPage() {
             </div>
           )}
         </>
+      )}
+
+      {showNewModal && (
+        <NewJourneyModal
+          campaigns={campaigns}
+          onClose={() => setShowNewModal(false)}
+          onCreate={handleNewJourney}
+        />
       )}
 
       {tab === "templates" && (
@@ -232,6 +261,54 @@ export default function JourneysPage() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ─── New Journey Modal ────────────────────────────────────────────────────────
+
+function NewJourneyModal({ campaigns, onClose, onCreate }: {
+  campaigns: Campaign[];
+  onClose: () => void;
+  onCreate: (name: string, campaignId: string) => Promise<void>;
+}) {
+  const [name,       setName]       = useState("");
+  const [campaignId, setCampaignId] = useState("");
+  const [loading,    setLoading]    = useState(false);
+
+  async function handleCreate() {
+    setLoading(true);
+    try { await onCreate(name, campaignId); }
+    catch { setLoading(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl border shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-[#0D1B2E] mb-4">New Journey</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Journey Name</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="Untitled Journey" autoFocus
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Link to Campaign</label>
+            <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white">
+              <option value="">No campaign</option>
+              {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
+          <button onClick={handleCreate} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
+            {loading ? "Creating…" : "Create & Open"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

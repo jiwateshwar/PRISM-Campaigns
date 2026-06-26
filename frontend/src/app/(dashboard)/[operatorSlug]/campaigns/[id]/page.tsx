@@ -26,9 +26,7 @@ export default function CampaignDetailPage() {
 
   const { data: campaign, isLoading } = useQuery<Campaign>({
     queryKey: ["campaign", id],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/${operatorSlug}/campaigns/${id}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-    }).then((r) => r.json() as Promise<Campaign>),
+    queryFn: () => api.getCampaign(operatorSlug, id),
   });
 
   const [tab, setTab] = useState<"details" | "forecast" | "tasks" | "actuals">("details");
@@ -44,9 +42,7 @@ export default function CampaignDetailPage() {
   const { data: plans = [] } = useQuery<MonthlyPlan[]>({ queryKey: ["plans", operatorSlug], queryFn: () => api.getPlans(operatorSlug) });
   const { data: tasks = [] } = useQuery<SupportTask[]>({
     queryKey: ["tasks", id],
-    queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/${operatorSlug}/campaigns/${id}/tasks`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-    }).then((r) => r.json() as Promise<SupportTask[]>),
+    queryFn: () => api.getCampaignTasks(operatorSlug, id),
   });
 
   const updateMutation = useMutation({

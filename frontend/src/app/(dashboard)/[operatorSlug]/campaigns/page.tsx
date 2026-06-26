@@ -287,8 +287,12 @@ function CampaignFormModal({
   const [monthlyPlanId, setMonthlyPlanId] = useState(campaign?.monthly_plan_id ?? "");
   const [productId,     setProductId]     = useState(campaign?.product_id ?? "");
   const [segmentId,     setSegmentId]     = useState(campaign?.segment_id ?? "");
-  const [offerId,       setOfferId]       = useState(campaign?.offer_id ?? "");
-  const [creativeId,    setCreativeId]    = useState(campaign?.creative_id ?? "");
+  const [offerId,          setOfferId]          = useState(campaign?.offer_id ?? "");
+  // Per-channel creative map: { "sms": "creative-id-1", "whatsapp": "creative-id-2" }
+  const [channelCreatives, setChannelCreatives] = useState<Record<string, string>>(() => {
+    if (!campaign?.creative_id || !(campaign?.channels ?? []).length) return {};
+    return { [(campaign.channels ?? [])[0]]: campaign.creative_id };
+  });
 
   // Forecast inputs
   const [fReach,   setFReach]   = useState(String(campaign?.forecast?.estimated_reach ?? ""));
@@ -326,10 +330,14 @@ function CampaignFormModal({
     setChannels((prev) => prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]);
   }
 
-  // Filter creatives to those compatible with selected channels
-  const compatibleCreatives = channels.length > 0
-    ? creatives.filter((c) => c.channels.some((ch) => channels.includes(ch)))
-    : creatives;
+  // Creatives available for a given channel
+  function creativesForChannel(ch: string): Creative[] {
+    return creatives.filter((c) => c.channels.includes(ch as Creative["channels"][number]));
+  }
+
+  function setChannelCreative(ch: string, creativeId: string) {
+    setChannelCreatives((prev) => ({ ...prev, [ch]: creativeId }));
+  }
 
   async function handleSave() {
     if (!name.trim()) { toast.error("Campaign name is required"); return; }
@@ -344,7 +352,7 @@ function CampaignFormModal({
         product_id:      productId || null,
         segment_id:      segmentId || null,
         offer_id:        offerId || null,
-        creative_id:     creativeId || null,
+        creative_id:     Object.values(channelCreatives).find(Boolean) ?? null,
         forecast: {
           estimated_reach:          reach,
           expected_conversion_pct:  convPct,
@@ -494,23 +502,38 @@ function CampaignFormModal({
                   </div>
                 )}
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#607080] mb-1.5">
-                  Creative
-                  {channels.length > 0 && compatibleCreatives.length < creatives.length && (
-                    <span className="ml-1 font-normal text-[#9EB0C1]">
-                      ({compatibleCreatives.length} of {creatives.length} match selected channels)
-                    </span>
-                  )}
-                </label>
-                <select value={creativeId} onChange={(e) => setCreativeId(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white">
-                  <option value="">No creative selected</option>
-                  {compatibleCreatives.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name} [{c.channels.join(", ")}]</option>
-                  ))}
-                </select>
-              </div>
+              {/* Per-channel creative pickers */}
+              {channels.length === 0 ? (
+                <div className="px-3 py-2 rounded-lg bg-[#EFF3F8] text-xs text-[#9EB0C1]">
+                  Select channels above to choose creatives per channel
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {channels.map((ch) => {
+                    const opts = creativesForChannel(ch);
+                    return (
+                      <div key={ch} className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold w-20 flex-shrink-0 text-[#607080] uppercase tracking-wide">
+                          {CHANNEL_LABELS[ch] || ch}
+                        </span>
+                        <select
+                          value={channelCreatives[ch] ?? ""}
+                          onChange={(e) => setChannelCreative(ch, e.target.value)}
+                          className="flex-1 px-2.5 py-2 text-xs rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 bg-white">
+                          <option value="">No creative for {CHANNEL_LABELS[ch] || ch}</option>
+                          {opts.length === 0
+                            ? []
+                            : opts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)
+                          }
+                        </select>
+                        {opts.length === 0 && (
+                          <span className="text-[10px] text-amber-500 flex-shrink-0">No {CHANNEL_LABELS[ch]} creatives</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

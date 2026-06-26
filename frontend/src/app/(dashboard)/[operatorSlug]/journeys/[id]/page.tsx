@@ -24,6 +24,7 @@ import {
   MarkerType,
   Panel,
 } from "@xyflow/react";
+import type { Campaign } from "@/types";
 import "@xyflow/react/dist/style.css";
 
 // ─── Node Type Config ─────────────────────────────────────────────────────────
@@ -82,13 +83,15 @@ interface FlowCanvasProps {
   journey: Journey | undefined;
   operatorSlug: string;
   id: string;
+  campaigns: import("@/types").Campaign[];
 }
 
-function FlowCanvas({ journey, operatorSlug, id }: FlowCanvasProps) {
+function FlowCanvas({ journey, operatorSlug, id, campaigns }: FlowCanvasProps) {
   const { screenToFlowPosition } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [journeyName, setJourneyName] = useState(journey?.name ?? "Untitled Journey");
+  const [campaignId,  setCampaignId]  = useState(journey?.campaign_id ?? "");
   const [editingName, setEditingName] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -133,7 +136,11 @@ function FlowCanvas({ journey, operatorSlug, id }: FlowCanvasProps) {
   async function handleSave() {
     setSaving(true);
     try {
-      await api.updateJourney(operatorSlug, id, { name: journeyName, nodes, edges });
+      await api.updateJourney(operatorSlug, id, {
+        name: journeyName,
+        nodes, edges,
+        campaign_id: campaignId || null,
+      });
       toast.success("Journey saved");
     } catch {
       toast.error("Failed to save journey");
@@ -164,6 +171,11 @@ function FlowCanvas({ journey, operatorSlug, id }: FlowCanvasProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <select value={campaignId} onChange={(e) => setCampaignId(e.target.value)}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-[#D6E1EE] bg-white outline-none focus:border-[#0A7EA4]/60 text-[#607080] max-w-[200px]">
+            <option value="">No campaign linked</option>
+            {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
           <span className="text-xs text-[#9EB0C1]">{nodes.length} nodes · {edges.length} connections</span>
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold text-white bg-[#0A7EA4] hover:bg-[#0A7EA4]/90 transition-colors disabled:opacity-50">
@@ -233,6 +245,11 @@ export default function JourneyBuilderPage() {
     queryFn: () => api.getJourney(operatorSlug, id),
   });
 
+  const { data: campaigns = [] } = useQuery<Campaign[]>({
+    queryKey: ["campaigns", operatorSlug],
+    queryFn: () => api.getCampaigns(operatorSlug),
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -243,7 +260,7 @@ export default function JourneyBuilderPage() {
 
   return (
     <ReactFlowProvider>
-      <FlowCanvas journey={journey} operatorSlug={operatorSlug} id={id} />
+      <FlowCanvas journey={journey} operatorSlug={operatorSlug} id={id} campaigns={campaigns} />
     </ReactFlowProvider>
   );
 }

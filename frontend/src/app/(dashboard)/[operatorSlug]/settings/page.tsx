@@ -8,7 +8,8 @@ import { PageHeader } from "@/components/layout/header";
 import type { ChannelCapacity, Product } from "@/types";
 import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
-import { Settings, Layers, Radio, Plus, Save, Loader2, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { Settings, Layers, Radio, Plus, Save, Loader2, AlertTriangle, Pencil, Trash2, Users, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import type { User } from "@/types";
 
 const CHANNELS = ["sms", "whatsapp", "ussd", "obd", "ivr", "push", "email"];
 
@@ -49,7 +50,7 @@ function CapacityRow({ cap, onChange }: { cap: ChannelCapacity; onChange: (id: s
   );
 }
 
-type Tab = "capacity" | "products";
+type Tab = "capacity" | "products" | "users";
 
 export default function SettingsPage() {
   const { operatorSlug } = useParams<{ operatorSlug: string }>();
@@ -63,6 +64,7 @@ export default function SettingsPage() {
   const [newMonthly, setNewMonthly] = useState("");
   const [showProductCreate, setShowProductCreate] = useState(false);
   const [editProduct,       setEditProduct]       = useState<Product | null>(null);
+  const [showUserCreate,    setShowUserCreate]    = useState(false);
   const qc = useQueryClient();
 
   const { data: capacities = [], isLoading: capLoading } = useQuery<ChannelCapacity[]>({
@@ -73,6 +75,12 @@ export default function SettingsPage() {
   const { data: products = [], isLoading: prodLoading } = useQuery<Product[]>({
     queryKey: ["products", operatorSlug],
     queryFn: () => api.getProducts(operatorSlug),
+  });
+
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ["users"],
+    queryFn: () => api.getUsers(),
+    enabled: tab === "users",
   });
 
   function handleCapChange(id: string, field: string, val: number) {
@@ -117,6 +125,7 @@ export default function SettingsPage() {
   const TABS = [
     { key: "capacity" as Tab, label: "Channel Capacity", icon: Radio },
     { key: "products" as Tab, label: "Products", icon: Layers },
+    { key: "users" as Tab, label: "Users", icon: Users },
   ];
 
   return (
@@ -264,6 +273,47 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {tab === "users" && (
+        <div className="bg-white rounded-xl border border-[#D6E1EE] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-[#0D1B2E]">System Users</h3>
+              <p className="text-xs text-[#9EB0C1] mt-0.5">Manage user accounts and operator access</p>
+            </div>
+            <button onClick={() => setShowUserCreate(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0A7EA4] rounded-lg hover:bg-[#0A7EA4]/90 transition-colors">
+              <Plus size={12} /> Add User
+            </button>
+          </div>
+          {usersLoading ? (
+            <div className="flex items-center justify-center h-32"><Loader2 className="animate-spin text-[#0A7EA4]" size={20} /></div>
+          ) : users.length === 0 ? (
+            <div className="text-center py-12 text-sm text-[#9EB0C1]">No users yet. Click "Add User" to create one.</div>
+          ) : (
+            <div className="divide-y divide-[#EAF0F7]">
+              {users.map((user) => (
+                <div key={user.id} className="flex items-center gap-3 py-3.5">
+                  <div className="w-8 h-8 rounded-full bg-[#EBF7FC] flex items-center justify-center text-xs font-bold text-[#0A7EA4] flex-shrink-0">
+                    {user.full_name?.slice(0, 2).toUpperCase() || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-[#0D1B2E] truncate">{user.full_name || "—"}</span>
+                      {user.is_super_admin && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">
+                          <ShieldCheck size={9} /> Admin
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-[#9EB0C1]">{user.email}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {showProductCreate && (
         <ProductFormModal operatorSlug={operatorSlug}
           onClose={() => setShowProductCreate(false)}
@@ -273,6 +323,11 @@ export default function SettingsPage() {
         <ProductFormModal operatorSlug={operatorSlug} product={editProduct}
           onClose={() => setEditProduct(null)}
           onSaved={() => { qc.invalidateQueries({ queryKey: ["products", operatorSlug] }); setEditProduct(null); }} />
+      )}
+      {showUserCreate && (
+        <UserFormModal operatorSlug={operatorSlug}
+          onClose={() => setShowUserCreate(false)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ["users"] }); setShowUserCreate(false); }} />
       )}
     </div>
   );
@@ -370,6 +425,85 @@ function ProductFormModal({ operatorSlug, product, onClose, onSaved }: {
           <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
           <button onClick={handleSave} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
             {loading ? (editing ? "Saving…" : "Creating…") : (editing ? "Save Changes" : "Create Product")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── User Form Modal ──────────────────────────────────────────────────────────
+
+function UserFormModal({ operatorSlug, onClose, onSaved }: {
+  operatorSlug: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [email,     setEmail]     = useState("");
+  const [fullName,  setFullName]  = useState("");
+  const [password,  setPassword]  = useState("");
+  const [showPw,    setShowPw]    = useState(false);
+  const [assignOp,  setAssignOp]  = useState(true);
+  const [loading,   setLoading]   = useState(false);
+
+  async function handleCreate() {
+    if (!email.trim() || !password.trim()) { toast.error("Email and password are required"); return; }
+    setLoading(true);
+    try {
+      const user = await api.createUser({ email, full_name: fullName, password });
+      if (assignOp) {
+        try { await api.assignOperatorRole({ user_id: user.id, operator_slug: operatorSlug, role: "operator_admin" }); }
+        catch { /* non-fatal — user is created, role assignment can be retried */ }
+      }
+      toast.success("User created");
+      onSaved();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      toast.error(err?.response?.data?.detail || "Failed to create user");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl border shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-bold text-[#0D1B2E] mb-4">Add User</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Full Name</label>
+            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+              placeholder="Jane Smith" autoFocus
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Email *</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="jane@example.com"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Password *</label>
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                className="w-full px-3 py-2.5 pr-10 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60" />
+              <button type="button" onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9EB0C1] hover:text-[#607080]">
+                {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer pt-1">
+            <input type="checkbox" checked={assignOp} onChange={(e) => setAssignOp(e.target.checked)}
+              className="w-4 h-4 rounded accent-[#0A7EA4]" />
+            <span className="text-xs font-medium text-[#3D4F63]">
+              Grant access to <strong>{operatorSlug}</strong> operator
+            </span>
+          </label>
+        </div>
+        <div className="flex gap-2 mt-5">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
+          <button onClick={handleCreate} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
+            {loading ? "Creating…" : "Create User"}
           </button>
         </div>
       </div>

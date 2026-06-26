@@ -12,6 +12,7 @@ import {
   Plus, CalendarDays, Loader2, Pencil, Trash2,
   Target, TrendingUp, Users, ChevronDown,
   BarChart2, CheckCircle2, Circle, ArrowRight,
+  LayoutList, Grid3x3,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -58,6 +59,86 @@ const OBJ_TYPES = [
   { value: "custom",          label: "Custom" },
 ];
 
+// ─── Campaign Calendar ────────────────────────────────────────────────────────
+
+function CampaignCalendar({ month, campaigns, operatorSlug }: {
+  month: string; campaigns: Campaign[]; operatorSlug: string;
+}) {
+  const parts = month.split("-");
+  const year = parseInt(parts[0], 10);
+  const mon  = parseInt(parts[1], 10) - 1; // 0-indexed
+
+  const firstDay  = new Date(year, mon, 1).getDay(); // 0=Sun
+  const daysInMon = new Date(year, mon + 1, 0).getDate();
+
+  // Build map: day-of-month → campaigns starting on that day
+  const byDay: Record<number, Campaign[]> = {};
+  campaigns.forEach((c) => {
+    if (!c.planned_start_date) return;
+    const dp = c.planned_start_date.slice(0, 10).split("-");
+    const cy = parseInt(dp[0], 10);
+    const cm = parseInt(dp[1], 10) - 1;
+    const cd = parseInt(dp[2], 10);
+    if (cy === year && cm === mon) {
+      byDay[cd] = byDay[cd] || [];
+      byDay[cd].push(c);
+    }
+  });
+
+  const STATUS_DOT: Record<string, string> = {
+    draft:     "bg-slate-400",
+    planning:  "bg-amber-400",
+    active:    "bg-green-500",
+    paused:    "bg-orange-400",
+    completed: "bg-blue-400",
+    cancelled: "bg-red-400",
+  };
+
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMon; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const today = new Date();
+  const isToday = (d: number) =>
+    today.getFullYear() === year && today.getMonth() === mon && today.getDate() === d;
+
+  return (
+    <div className="p-5">
+      <div className="grid grid-cols-7 gap-px bg-[#EAF0F7] rounded-xl overflow-hidden border border-[#EAF0F7]">
+        {DAY_LABELS.map((d) => (
+          <div key={d} className="bg-[#F9FBFD] py-1.5 text-center text-[10px] font-bold text-[#9EB0C1] uppercase tracking-wide">
+            {d}
+          </div>
+        ))}
+        {cells.map((day, idx) => (
+          <div key={idx} className={`bg-white min-h-[80px] p-1.5 ${day && isToday(day) ? "bg-[#EBF7FC]" : ""}`}>
+            {day !== null && (
+              <>
+                <span className={`text-[10px] font-bold block mb-1 ${isToday(day) ? "text-[#0A7EA4]" : "text-[#9EB0C1]"}`}>
+                  {day}
+                </span>
+                <div className="space-y-0.5">
+                  {(byDay[day] || []).map((c) => (
+                    <a key={c.id} href={`/${operatorSlug}/campaigns/${c.id}`}
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#EBF7FC] text-[#0A7EA4] hover:bg-[#D0EDF7] transition-colors truncate block"
+                      title={c.name}>
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[c.status] || "bg-gray-300"}`} />
+                      <span className="truncate">{c.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Plan Detail Panel ────────────────────────────────────────────────────────
 
 function PlanDetailPanel({
@@ -69,6 +150,7 @@ function PlanDetailPanel({
 }) {
   const qc = useQueryClient();
   const [showAddObjective, setShowAddObjective] = useState(false);
+  const [campaignView, setCampaignView] = useState<"list" | "calendar">("list");
   const [objForm, setObjForm] = useState({
     name: "", objective_type: "acquisition", target_value: "", target_unit: "count", weight: "1",
   });
@@ -361,10 +443,22 @@ function PlanDetailPanel({
                 </span>
               )}
             </div>
-            <Link href={`/${operatorSlug}/campaigns`}
-              className="flex items-center gap-1 text-xs font-medium text-[#0A7EA4] hover:underline">
-              View all <ArrowRight size={11} />
-            </Link>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-lg border border-[#D6E1EE] overflow-hidden">
+                <button onClick={() => setCampaignView("list")}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors ${campaignView === "list" ? "bg-[#0A7EA4] text-white" : "text-[#9EB0C1] hover:bg-[#EFF3F8]"}`}>
+                  <LayoutList size={11} /> List
+                </button>
+                <button onClick={() => setCampaignView("calendar")}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors ${campaignView === "calendar" ? "bg-[#0A7EA4] text-white" : "text-[#9EB0C1] hover:bg-[#EFF3F8]"}`}>
+                  <Grid3x3 size={11} /> Calendar
+                </button>
+              </div>
+              <Link href={`/${operatorSlug}/campaigns`}
+                className="flex items-center gap-1 text-xs font-medium text-[#0A7EA4] hover:underline">
+                View all <ArrowRight size={11} />
+              </Link>
+            </div>
           </div>
 
           {campaignsLoading ? (
@@ -375,6 +469,8 @@ function PlanDetailPanel({
             <div className="text-center py-8 text-[#9EB0C1] text-xs">
               No campaigns linked to this plan yet. Set the monthly plan when creating a campaign.
             </div>
+          ) : campaignView === "calendar" ? (
+            <CampaignCalendar month={plan.month ?? ""} campaigns={campaigns} operatorSlug={operatorSlug} />
           ) : (
             <table className="w-full">
               <thead>

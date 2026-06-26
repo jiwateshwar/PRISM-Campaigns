@@ -1,11 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  experimental: {
-    serverComponentsExternalPackages: [],
-  },
+  serverExternalPackages: [],
   images: {
-    domains: ["localhost"],
+    remotePatterns: [{ protocol: "http", hostname: "localhost" }],
   },
 };
 
