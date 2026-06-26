@@ -20,9 +20,11 @@ const CHANNEL_STYLES: Record<string, { label: string; color: string; bg: string 
   email: { label: "Email", color: "#64748B", bg: "#F1F5F9" },
 };
 
+type CreativeStatus = "draft" | "approved" | "archived";
+
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-500",
-  active: "bg-green-50 text-green-700",
+  approved: "bg-green-50 text-green-700",
   archived: "bg-orange-50 text-orange-700",
 };
 
@@ -204,7 +206,7 @@ function CreativeFormModal({ operatorSlug, creative, onClose, onSaved }: {
   const [selectedChannels, setSelectedChannels] = useState<string[]>(creative?.channels ?? []);
   const [telcoName, setTelcoName] = useState(creative?.telco_name ?? "");
   const [language, setLanguage] = useState(creative?.language ?? "English");
-  const [status, setStatus] = useState(creative?.status ?? "draft");
+  const [status, setStatus] = useState<CreativeStatus>(creative?.status ?? "draft");
   const [isShared, setIsShared] = useState(creative?.is_shared ?? false);
   const [loading, setLoading] = useState(false);
 
@@ -271,10 +273,10 @@ function CreativeFormModal({ operatorSlug, creative, onClose, onSaved }: {
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#607080] mb-1.5">Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}
+            <select value={status} onChange={(e) => setStatus(e.target.value as CreativeStatus)}
               className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors bg-white">
               <option value="draft">Draft</option>
-              <option value="active">Active</option>
+              <option value="approved">Approved</option>
               <option value="archived">Archived</option>
             </select>
           </div>
