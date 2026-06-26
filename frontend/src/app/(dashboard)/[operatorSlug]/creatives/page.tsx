@@ -98,7 +98,7 @@ export default function CreativesPage() {
   const filtered = creatives.filter((c) => {
     const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || c.status === statusFilter;
-    const matchChannel = channelFilter === "all" || c.channels.includes(channelFilter);
+    const matchChannel = channelFilter === "all" || c.channels.includes(channelFilter as import("@/types").ChannelType);
     return matchSearch && matchStatus && matchChannel;
   });
 

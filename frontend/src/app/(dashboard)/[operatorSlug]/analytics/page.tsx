@@ -54,7 +54,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  const statusPieData = Object.entries(summary?.status_counts || {}).map(([name, value]) => ({
+  const statusPieData = Object.entries(summary?.campaign_status_counts || {}).map(([name, value]) => ({
     name, value,
     itemStyle: { color: STATUS_COLORS[name] || "#94A3B8" },
   }));
@@ -124,10 +124,10 @@ export default function AnalyticsPage() {
   };
 
   const kpis = [
-    { label: "Total Campaigns", value: formatNumber(summary?.total_campaigns || 0), icon: Megaphone, sub: `${summary?.active_campaigns || 0} active` },
-    { label: "Forecast Activations", value: formatNumber(summary?.forecast_activations || 0), icon: Target, sub: "this cycle" },
-    { label: "Forecast Revenue", value: formatCurrency(summary?.forecast_revenue || 0, "USD"), icon: TrendingUp, sub: "this cycle" },
-    { label: "Segments", value: formatNumber(summary?.total_segments || 0), icon: Users, sub: `${summary?.total_offers || 0} offers` },
+    { label: "Total Campaigns", value: formatNumber(summary?.total_campaigns || 0), icon: Megaphone, sub: `${(summary?.campaign_status_counts?.executing || 0) + (summary?.campaign_status_counts?.scheduled || 0)} active` },
+    { label: "Forecast Activations", value: formatNumber(summary?.forecast?.activations || 0), icon: Target, sub: "this cycle" },
+    { label: "Forecast Revenue", value: formatCurrency(summary?.forecast?.revenue || 0, "USD"), icon: TrendingUp, sub: "this cycle" },
+    { label: "Segments", value: formatNumber(summary?.segment_count || 0), icon: Users, sub: `${summary?.active_offer_count || 0} offers` },
   ];
 
   return (
