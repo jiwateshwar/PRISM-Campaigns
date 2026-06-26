@@ -6,11 +6,13 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/layout/header";
 import type { Segment } from "@/types";
-import { formatDate, formatNumber, truncate } from "@/lib/utils";
+import { formatNumber, truncate } from "@/lib/utils";
 import { toast } from "sonner";
-import { Plus, Search, Users, Shield, GitBranch, Loader2, Trash2 } from "lucide-react";
+import { Plus, Search, Users, Shield, Loader2, Trash2, Pencil } from "lucide-react";
 
-function SegmentCard({ segment, onDelete }: { segment: Segment; onDelete: () => void }) {
+function SegmentCard({ segment, onEdit, onDelete }: {
+  segment: Segment; onEdit: () => void; onDelete: () => void;
+}) {
   const reachPct = segment.estimated_audience_size > 0
     ? Math.round((segment.eligible_audience_size / segment.estimated_audience_size) * 100)
     : 0;
@@ -29,10 +31,16 @@ function SegmentCard({ segment, onDelete }: { segment: Segment; onDelete: () => 
             <p className="text-xs text-[#607080] truncate">{truncate(segment.description, 80)}</p>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${segment.is_active ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
             {segment.is_active ? "Active" : "Inactive"}
           </span>
+          <button
+            onClick={onEdit}
+            className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md flex items-center justify-center hover:bg-[#EFF3F8] text-[#9EB0C1] hover:text-[#0A7EA4] transition-all"
+          >
+            <Pencil size={11} />
+          </button>
           <button
             onClick={onDelete}
             className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md flex items-center justify-center hover:bg-red-50 text-[#9EB0C1] hover:text-red-500 transition-all"
@@ -77,7 +85,8 @@ function SegmentCard({ segment, onDelete }: { segment: Segment; onDelete: () => 
 export default function SegmentsPage() {
   const { operatorSlug } = useParams<{ operatorSlug: string }>();
   const [search, setSearch] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editSegment, setEditSegment] = useState<Segment | null>(null);
   const qc = useQueryClient();
 
   const { data: segments = [], isLoading } = useQuery<Segment[]>({
@@ -85,14 +94,17 @@ export default function SegmentsPage() {
     queryFn: () => api.getSegments(operatorSlug, false),
   });
 
-  const deleteMutation = useMutation({
+  const deactivateMutation = useMutation({
     mutationFn: (id: string) => api.updateSegment(operatorSlug, id, { is_active: false }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["segments"] }); toast.success("Segment deactivated"); },
+    onError: () => toast.error("Failed to deactivate segment"),
   });
 
   const filtered = segments.filter(
     (s) => !search || s.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  function invalidate() { qc.invalidateQueries({ queryKey: ["segments"] }); }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -101,7 +113,7 @@ export default function SegmentsPage() {
         description="Business-defined audience segments — no customer identities stored"
         actions={
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#0A7EA4] hover:bg-[#0A7EA4]/90 transition-colors"
           >
             <Plus size={15} />
@@ -139,7 +151,7 @@ export default function SegmentsPage() {
           <Users size={36} className="mx-auto text-[#D6E1EE] mb-3" />
           <p className="font-semibold text-[#0D1B2E]">No segments yet</p>
           <p className="text-sm text-[#9EB0C1] mt-1">Define your first audience segment</p>
-          <button onClick={() => setShowForm(true)} className="mt-4 px-4 py-2 text-sm font-semibold text-white bg-[#0A7EA4] rounded-lg">
+          <button onClick={() => setShowCreate(true)} className="mt-4 px-4 py-2 text-sm font-semibold text-white bg-[#0A7EA4] rounded-lg">
             Create Segment
           </button>
         </div>
@@ -149,51 +161,68 @@ export default function SegmentsPage() {
             <SegmentCard
               key={segment.id}
               segment={segment}
-              onDelete={() => deleteMutation.mutate(segment.id)}
+              onEdit={() => setEditSegment(segment)}
+              onDelete={() => {
+                if (confirm(`Deactivate "${segment.name}"?`)) deactivateMutation.mutate(segment.id);
+              }}
             />
           ))}
         </div>
       )}
 
-      {showForm && (
-        <SegmentCreateModal
+      {showCreate && (
+        <SegmentFormModal
           operatorSlug={operatorSlug}
-          onClose={() => setShowForm(false)}
-          onCreated={() => { qc.invalidateQueries({ queryKey: ["segments"] }); setShowForm(false); }}
+          onClose={() => setShowCreate(false)}
+          onSaved={() => { invalidate(); setShowCreate(false); }}
+        />
+      )}
+
+      {editSegment && (
+        <SegmentFormModal
+          operatorSlug={operatorSlug}
+          segment={editSegment}
+          onClose={() => setEditSegment(null)}
+          onSaved={() => { invalidate(); setEditSegment(null); }}
         />
       )}
     </div>
   );
 }
 
-function SegmentCreateModal({ operatorSlug, onClose, onCreated }: {
-  operatorSlug: string; onClose: () => void; onCreated: () => void;
+function SegmentFormModal({ operatorSlug, segment, onClose, onSaved }: {
+  operatorSlug: string; segment?: Segment; onClose: () => void; onSaved: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [owner, setOwner] = useState("");
-  const [estSize, setEstSize] = useState("");
-  const [eligSize, setEligSize] = useState("");
-  const [notes, setNotes] = useState("");
+  const editing = !!segment;
+  const [name, setName] = useState(segment?.name ?? "");
+  const [description, setDescription] = useState(segment?.description ?? "");
+  const [owner, setOwner] = useState(segment?.owner ?? "");
+  const [estSize, setEstSize] = useState(String(segment?.estimated_audience_size ?? ""));
+  const [eligSize, setEligSize] = useState(String(segment?.eligible_audience_size ?? ""));
+  const [notes, setNotes] = useState(segment?.notes ?? "");
   const [loading, setLoading] = useState(false);
 
-  async function handleCreate() {
+  async function handleSave() {
     if (!name.trim()) { toast.error("Segment name is required"); return; }
     setLoading(true);
     try {
-      await api.createSegment(operatorSlug, {
-        name,
-        description,
-        owner,
-        business_rules: {},
+      const payload = {
+        name, description, owner,
+        business_rules: segment?.business_rules ?? {},
         estimated_audience_size: parseInt(estSize) || 0,
         eligible_audience_size: parseInt(eligSize) || 0,
         notes,
-      });
-      toast.success("Segment created");
-      onCreated();
+      };
+      if (editing) {
+        await api.updateSegment(operatorSlug, segment!.id, payload);
+        toast.success("Segment updated");
+      } else {
+        await api.createSegment(operatorSlug, payload);
+        toast.success("Segment created");
+      }
+      onSaved();
     } catch {
-      toast.error("Failed to create segment");
+      toast.error(editing ? "Failed to update segment" : "Failed to create segment");
     } finally {
       setLoading(false);
     }
@@ -202,16 +231,20 @@ function SegmentCreateModal({ operatorSlug, onClose, onCreated }: {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl border border-[#D6E1EE] shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-base font-bold text-[#0D1B2E] mb-4">New Audience Segment</h2>
+        <h2 className="text-base font-bold text-[#0D1B2E] mb-4">
+          {editing ? "Edit Segment" : "New Audience Segment"}
+        </h2>
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#607080] mb-1.5">Segment Name *</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. High Value Subscribers" autoFocus
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. High Value Subscribers" autoFocus
               className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-[#607080] mb-1.5">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Business description of who this segment includes…"
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
+              placeholder="Business description of who this segment includes…"
               className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -231,11 +264,17 @@ function SegmentCreateModal({ operatorSlug, onClose, onCreated }: {
             <input type="text" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="e.g. Marketing Team"
               className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors" />
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#607080] mb-1.5">Notes</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              placeholder="Additional context or notes about this segment…"
+              className="w-full px-3 py-2.5 text-sm rounded-lg border border-[#D6E1EE] outline-none focus:border-[#0A7EA4]/60 transition-colors resize-none" />
+          </div>
         </div>
         <div className="flex gap-2 mt-5">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm font-medium rounded-lg border border-[#D6E1EE] text-[#607080]">Cancel</button>
-          <button onClick={handleCreate} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
-            {loading ? "Creating…" : "Create Segment"}
+          <button onClick={handleSave} disabled={loading} className="flex-1 py-2.5 text-sm font-semibold text-white rounded-lg bg-[#0A7EA4] disabled:opacity-50">
+            {loading ? (editing ? "Saving…" : "Creating…") : (editing ? "Save Changes" : "Create Segment")}
           </button>
         </div>
       </div>

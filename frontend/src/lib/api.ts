@@ -153,6 +153,10 @@ class ApiClient {
     return res.data;
   }
 
+  async deletePlan(operatorSlug: string, id: string) {
+    await this.client.delete(`/${operatorSlug}/plans/${id}`);
+  }
+
   async getPlanObjectives(operatorSlug: string, planId: string) {
     const res = await this.client.get(`/${operatorSlug}/plans/${planId}/objectives`);
     return res.data;
@@ -258,6 +262,10 @@ class ApiClient {
     return res.data;
   }
 
+  async deleteOffer(operatorSlug: string, id: string) {
+    await this.client.delete(`/${operatorSlug}/offers/${id}`);
+  }
+
   // ─── Creatives ───────────────────────────────────────────────────────────────
 
   async getCreatives(operatorSlug: string, params?: Record<string, unknown>) {
@@ -295,6 +303,10 @@ class ApiClient {
   async updateJourney(operatorSlug: string, id: string, data: Record<string, unknown>) {
     const res = await this.client.patch(`/${operatorSlug}/journeys/${id}`, data);
     return res.data;
+  }
+
+  async deleteJourney(operatorSlug: string, id: string) {
+    await this.client.delete(`/${operatorSlug}/journeys/${id}`);
   }
 
   async getJourneyTemplates(operatorSlug: string, category?: string) {

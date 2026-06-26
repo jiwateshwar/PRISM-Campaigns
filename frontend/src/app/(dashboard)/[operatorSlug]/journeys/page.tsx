@@ -1,14 +1,14 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/layout/header";
 import type { Journey, JourneyTemplate } from "@/types";
-import { formatDate, truncate } from "@/lib/utils";
+import { truncate } from "@/lib/utils";
 import { toast } from "sonner";
-import { Plus, Search, Workflow, Loader2, Layers, Copy, ExternalLink } from "lucide-react";
+import { Plus, Search, Workflow, Loader2, Layers, Copy, ExternalLink, Trash2 } from "lucide-react";
 
 const TEMPLATE_CATEGORIES = [
   { value: "all", label: "All Templates" },
@@ -46,6 +46,12 @@ export default function JourneysPage() {
     queryKey: ["journey-templates", operatorSlug, templateCategory],
     queryFn: () => api.getJourneyTemplates(operatorSlug, templateCategory === "all" ? undefined : templateCategory),
     enabled: tab === "templates",
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteJourney(operatorSlug, id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["journeys", operatorSlug] }); toast.success("Journey deleted"); },
+    onError: () => toast.error("Failed to delete journey"),
   });
 
   async function handleCloneTemplate(template: JourneyTemplate) {
@@ -86,7 +92,6 @@ export default function JourneysPage() {
         }
       />
 
-      {/* Tabs */}
       <div className="flex border-b border-[#D6E1EE]">
         {[
           { key: "journeys" as const, label: "My Journeys", icon: Workflow },
@@ -112,9 +117,7 @@ export default function JourneysPage() {
           <div className="relative w-56">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9EB0C1]" />
             <input
-              type="text"
-              placeholder="Search journeys…"
-              value={search}
+              type="text" placeholder="Search journeys…" value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8 pr-4 py-2 text-sm rounded-lg border border-[#D6E1EE] bg-white outline-none focus:border-[#0A7EA4]/50 w-full"
             />
@@ -149,7 +152,18 @@ export default function JourneysPage() {
                       <h3 className="font-semibold text-[#0D1B2E] text-sm truncate">{journey.name}</h3>
                       {journey.description && <p className="text-xs text-[#607080] truncate mt-0.5">{truncate(journey.description, 70)}</p>}
                     </div>
-                    <ExternalLink size={13} className="text-[#D6E1EE] group-hover:text-[#0A7EA4] transition-colors flex-shrink-0 mt-0.5" />
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <ExternalLink size={13} className="text-[#D6E1EE] group-hover:text-[#0A7EA4] transition-colors mt-0.5" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete "${journey.name}"?`)) deleteMutation.mutate(journey.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-md flex items-center justify-center hover:bg-red-50 text-[#9EB0C1] hover:text-red-500 transition-all"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-[#9EB0C1]">
                     <span>{journey.nodes.length} nodes · {journey.edges.length} connections</span>
