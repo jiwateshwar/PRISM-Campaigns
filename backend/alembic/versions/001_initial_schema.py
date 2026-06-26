@@ -68,6 +68,7 @@ def upgrade() -> None:
         sa.Column("operator_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("operators.id", ondelete="CASCADE"), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("code", sa.String(50), nullable=False),
+        sa.Column("description", sa.Text()),
         sa.Column("category", sa.String(100)),
         sa.Column("icon", sa.String(10)),
         sa.Column("color", sa.String(20)),
