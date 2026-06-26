@@ -46,7 +46,7 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: "prism-auth",
-      partialState: (state) => ({
+      partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
