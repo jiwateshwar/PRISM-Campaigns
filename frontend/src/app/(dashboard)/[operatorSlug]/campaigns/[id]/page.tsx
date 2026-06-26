@@ -290,7 +290,7 @@ export default function CampaignDetailPage() {
             {[
               { label: "Forecast Reach", value: formatNumber(campaign.forecast?.estimated_reach || selectedSegment?.estimated_audience_size || 0), icon: Users },
               { label: "Forecast Activations", value: formatNumber(campaign.forecast?.expected_activations || 0), icon: Target },
-              { label: "Conversion Rate", value: formatPercent(campaign.forecast?.conversion_pct || selectedOffer?.expected_conversion_rate || 0), icon: TrendingUp },
+              { label: "Conversion Rate", value: formatPercent(campaign.forecast?.expected_conversion_pct || selectedOffer?.expected_conversion_rate || 0), icon: TrendingUp },
               { label: "Forecast Revenue", value: formatCurrency(campaign.forecast?.expected_revenue || 0, "USD"), icon: TrendingUp },
             ].map((kpi, i) => (
               <div key={i} className="rounded-xl bg-[#EFF3F8] p-4">

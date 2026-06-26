@@ -8,7 +8,7 @@ import type { Journey } from "@/types";
 import { toast } from "sonner";
 import { Save, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-import ReactFlow, {
+import { ReactFlow,
   Background,
   Controls,
   MiniMap,
