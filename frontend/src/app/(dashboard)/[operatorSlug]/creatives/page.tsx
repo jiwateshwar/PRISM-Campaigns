@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/layout/header";
-import type { Creative } from "@/types";
+import type { Creative, ChannelType } from "@/types";
 import { truncate } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Search, Image, Globe, Loader2, Trash2, Shield } from "lucide-react";
@@ -98,7 +98,7 @@ export default function CreativesPage() {
   const filtered = creatives.filter((c) => {
     const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || c.status === statusFilter;
-    const matchChannel = channelFilter === "all" || c.channels.includes(channelFilter as import("@/types").ChannelType);
+    const matchChannel = channelFilter === "all" || c.channels.includes(channelFilter as ChannelType);
     return matchSearch && matchStatus && matchChannel;
   });
 

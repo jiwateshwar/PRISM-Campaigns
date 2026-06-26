@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
 import type { Journey } from "@/types";

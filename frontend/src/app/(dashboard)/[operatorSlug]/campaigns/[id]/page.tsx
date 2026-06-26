@@ -28,7 +28,7 @@ export default function CampaignDetailPage() {
     queryKey: ["campaign", id],
     queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/${operatorSlug}/campaigns/${id}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-    }).then((r) => r.json()),
+    }).then((r) => r.json() as Promise<Campaign>),
   });
 
   const [tab, setTab] = useState<"details" | "forecast" | "tasks" | "actuals">("details");
@@ -46,7 +46,7 @@ export default function CampaignDetailPage() {
     queryKey: ["tasks", id],
     queryFn: () => fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/${operatorSlug}/campaigns/${id}/tasks`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` },
-    }).then((r) => r.json()),
+    }).then((r) => r.json() as Promise<SupportTask[]>),
   });
 
   const updateMutation = useMutation({
